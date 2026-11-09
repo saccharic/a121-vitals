@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "a121-vitals"
+version = "0.1.0.dev0"
+description = "Inspect Acconeer A121 recordings for contactless vital-sign research"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = ["acconeer-exptool==7.18.2", "h5py>=3.8,<4"]
+
+[project.optional-dependencies]
+web = ["acconeer-exptool[algo]==7.18.2", "fastapi>=0.141,<1", "uvicorn>=0.54,<1"]
+test = ["httpx>=0.28,<1"]
+
+[project.scripts]
+a121-vitals = "a121_vitals.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+a121_vitals = ["samples/1109 data.h5"]
