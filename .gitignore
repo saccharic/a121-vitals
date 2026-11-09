@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.DS_Store
+*.h5
+!/src/a121_vitals/samples/1109 data.h5
+*.hdf5
+node_modules/
+*.tsbuildinfo
+.pytest_cache/
+.env
+!.env.example
