@@ -27,6 +27,8 @@ const stageNames = {
 };
 const storageKey = "a121-vitals-recording";
 
+type PlaybackEntry = { key: string; record: Recording };
+
 function openRecording(job: string, file?: File, signal?: AbortSignal) {
   const parameters = new URLSearchParams({ job });
   if (file) {
@@ -42,6 +44,14 @@ function openRecording(job: string, file?: File, signal?: AbortSignal) {
     method: "POST",
     signal,
   });
+}
+
+function discard(record: Recording | null, keepId?: string) {
+  if (record && record.source !== "sample" && record.id !== keepId) {
+    void request(`/api/recordings/${record.id}`, { method: "DELETE" }).catch(
+      () => {},
+    );
+  }
 }
 
 function readStored() {
@@ -90,7 +100,9 @@ class PlaybackBoundary extends Component<{
 
   render() {
     return this.state.failed ? (
-      <div className="waiting-panel">재생 오류</div>
+      <div className="waiting-panel">
+        <strong className="status-failed">재생 준비 실패</strong>
+      </div>
     ) : (
       this.props.children
     );
@@ -98,7 +110,9 @@ class PlaybackBoundary extends Component<{
 }
 
 export default function App() {
-  const [record, setRecord] = useState<Recording | null>(null);
+  const [active, setActive] = useState<PlaybackEntry | null>(null);
+  const [pending, setPending] = useState<PlaybackEntry | null>(null);
+  const [openingName, setOpeningName] = useState<string | null>(null);
   const [starting, setStarting] = useState(true);
   const [job, setJob] = useState<string | null>(null);
   const [stage, setStage] = useState<AnalysisStage>("reading");
@@ -107,14 +121,41 @@ export default function App() {
   const [error, setError] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const uploading = useRef(false);
-  const busy = starting || job !== null;
-  const recordName = record?.source === "sample" ? SAMPLE_NAME : record?.name;
+  const record = active?.record ?? null;
+  const busy = starting || openingName !== null || pending !== null;
+  const selected = pending?.record ?? record;
+  const recordName =
+    openingName ??
+    (selected?.source === "sample" ? SAMPLE_NAME : selected?.name);
   const markReady = useCallback(() => setReady(true), []);
   const viewerError = useCallback((message: string) => setError(message), []);
   const playbackFailed = useCallback(() => {
     setReady(false);
     setError("기록을 표시하지 못했습니다. 기록을 다시 열어 주십시오.");
   }, []);
+  const activatePending = useCallback(() => {
+    if (!pending) return;
+    setActive(pending);
+    setPending(null);
+    setReady(true);
+    setError("");
+    remember(pending.record.id);
+    discard(record, pending.record.id);
+  }, [pending, record]);
+  const pendingError = useCallback(
+    (message: string) => {
+      if (!pending || !message) return;
+      setPending(null);
+      setError(message);
+      discard(pending.record, record?.id);
+    },
+    [pending, record],
+  );
+  const pendingFailed = useCallback(
+    () =>
+      pendingError("기록을 표시하지 못했습니다. 기록을 다시 열어 주십시오."),
+    [pendingError],
+  );
 
   useEffect(() => {
     const id = readStored();
@@ -140,11 +181,12 @@ export default function App() {
         if (signal.aborted) return;
         if (!next) {
           const sampleJob = crypto.randomUUID();
+          setOpeningName(SAMPLE_NAME);
           setJob(sampleJob);
           next = await openRecording(sampleJob, undefined, signal);
         }
         if (!signal.aborted) {
-          setRecord(next);
+          setActive({ key: next.id, record: next });
           remember(next.id);
         }
       } catch (error) {
@@ -152,6 +194,7 @@ export default function App() {
       } finally {
         if (!signal.aborted) {
           setStarting(false);
+          setOpeningName(null);
           setJob(null);
         }
       }
@@ -193,21 +236,30 @@ export default function App() {
       setError("파일 크기는 32 MiB 이하여야 합니다.");
       return;
     }
+    const refreshSample =
+      !file && record?.source === "sample" && ready && !error;
     uploading.current = true;
+    if (!refreshSample) setOpeningName(file?.name ?? SAMPLE_NAME);
     setError("");
     try {
       await requirePlaybackServer();
       const id = crypto.randomUUID();
-      setJob(id);
-      setStage("reading");
+      if (!refreshSample) {
+        setJob(id);
+        setStage("reading");
+      }
       const next = await openRecording(id, file);
-      setReady(false);
-      setRecord(next);
-      remember(next.id);
-      if (record && record.source !== "sample")
-        void request(`/api/recordings/${record.id}`, {
-          method: "DELETE",
-        }).catch(() => {});
+      if (next.id === record?.id && ready && !error) return;
+
+      const entry = { key: id, record: next };
+      if (record && ready) {
+        setPending(entry);
+      } else {
+        setReady(false);
+        setActive(entry);
+        remember(next.id);
+        discard(record, next.id);
+      }
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "기록을 열 수 없습니다.",
@@ -215,38 +267,39 @@ export default function App() {
     } finally {
       uploading.current = false;
       setJob(null);
+      setOpeningName(null);
       if (input.current) input.current.value = "";
     }
-  }
-
-  function close() {
-    if (!record || busy || uploading.current) return;
-    setRecord(null);
-    setReady(false);
-    setError("");
-    remember(null);
-    if (record.source !== "sample")
-      void request(`/api/recordings/${record.id}`, { method: "DELETE" }).catch(
-        () => {},
-      );
   }
 
   return (
     <div className="site-layout">
       <main className="wrap">
         <section className="hero" aria-labelledby="title">
-          <h1 id="title">
-            A121 Vitals <span>XE125</span>
-          </h1>
+          <h1 id="title">A121 Vitals</h1>
           <div className="showcase">
-            {record && !job ? (
-              <PlaybackBoundary key={record.id} onFailure={playbackFailed}>
-                <Playback
-                  record={record}
-                  onReady={markReady}
-                  onError={viewerError}
-                />
-              </PlaybackBoundary>
+            {active ? (
+              [active, pending].map((entry) => {
+                if (!entry) return null;
+                const preparing = entry === pending;
+                return (
+                  <div
+                    key={entry.key}
+                    className={preparing ? "pending-playback" : undefined}
+                    inert={preparing}
+                  >
+                    <PlaybackBoundary
+                      onFailure={preparing ? pendingFailed : playbackFailed}
+                    >
+                      <Playback
+                        record={entry.record}
+                        onReady={preparing ? activatePending : markReady}
+                        onError={preparing ? pendingError : viewerError}
+                      />
+                    </PlaybackBoundary>
+                  </div>
+                );
+              })
             ) : (
               <div className="waiting-panel hero-wait" role="status">
                 {busy ? "재생 준비 중" : "재생 대기"}
@@ -286,10 +339,42 @@ export default function App() {
               <div className="source-icon">
                 <Icon type="upload" />
               </div>
-              <div>
-                <h3>.H5 파일</h3>
-                <span className="hint">최대 32 MiB</span>
-              </div>
+              {busy || record || error ? (
+                <div className="progress-bar" role="status">
+                  {!error && (busy || !ready) && (
+                    <span className="status-dot" aria-hidden="true" />
+                  )}
+                  <strong
+                    className={
+                      error && !busy
+                        ? "status-failed"
+                        : ready && !busy
+                          ? "status-ready"
+                          : undefined
+                    }
+                  >
+                    {job
+                      ? `${stageNames[stage]} 중`
+                      : busy
+                        ? "재생 준비 중"
+                        : error
+                          ? "재생 준비 실패"
+                          : ready
+                            ? "재생 준비 완료!"
+                            : "재생 준비 중"}
+                  </strong>
+                  {recordName && (
+                    <span className="record-name" title={recordName}>
+                      {recordName}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <h3>.H5 파일</h3>
+                  <span className="hint">최대 32 MiB</span>
+                </div>
+              )}
               <input
                 type="file"
                 accept=".h5,.hdf5"
@@ -306,6 +391,11 @@ export default function App() {
               >
                 파일 선택
               </button>
+              {error && !busy && (
+                <p className="error" role="alert">
+                  {error}
+                </p>
+              )}
             </div>
 
             <div
@@ -330,77 +420,10 @@ export default function App() {
             </div>
           </div>
         </section>
-
-        {(job || record || error) && (
-          <section className="analysis-status" aria-label="분석 상태">
-            {job ? (
-              <div className="progress-bar" role="status" aria-live="polite">
-                <span className="status-dot working" />
-                <strong>{stageNames[stage]} 중</strong>
-              </div>
-            ) : (
-              record && (
-                <div className="progress-bar" role="status" aria-live="polite">
-                  <span
-                    className={
-                      ready
-                        ? "status-dot"
-                        : error
-                          ? "status-dot failed"
-                          : "status-dot working"
-                    }
-                  />
-                  <strong>
-                    {ready
-                      ? "재생 준비 완료"
-                      : error
-                        ? "재생 준비 오류"
-                        : "재생 준비 중"}
-                  </strong>
-                  <span className="record-name" title={recordName}>
-                    {recordName}
-                  </span>
-                  <button className="text-link close-record" onClick={close}>
-                    닫기
-                  </button>
-                </div>
-              )
-            )}
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
-          </section>
-        )}
-
-        <section className="content-section" aria-labelledby="hardware-title">
-          <h2 id="hardware-title">Radar Specs</h2>
-          <dl className="spec-grid">
-            <div>
-              <dt>레이더 센서</dt>
-              <dd>Acconeer A121</dd>
-            </div>
-            <div>
-              <dt>대역</dt>
-              <dd>60 GHz</dd>
-            </div>
-            <div>
-              <dt>평가 보드 및 모듈</dt>
-              <dd>XE125 · XM125</dd>
-            </div>
-          </dl>
-          <a
-            className="text-link reference"
-            href="https://acconeer.com/products/"
-          >
-            Acconeer 제품 사양
-          </a>
-        </section>
       </main>
 
       <footer className="wrap site-footer">
-        <span>A121 Vitals · XE125</span>
+        <span>A121 Vitals</span>
         <div className="footer-links">
           <a href={SOURCE}>GitHub</a>
           <a href={LICENSE_DOWNLOAD} download="a121-vitals-LICENSE.txt">

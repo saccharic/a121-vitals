@@ -81,26 +81,25 @@ main {
   padding-top: clamp(44px, 7vw, 100px);
 }
 .hero h1 {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.1em 0.3em;
   margin: 0 0 clamp(24px, 4vw, 46px);
   font-size: clamp(30px, 4vw, 38px);
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.04em;
 }
-.hero h1 span {
-  color: var(--secondary);
-  font-size: 0.48em;
-  font-weight: 550;
-  letter-spacing: -0.025em;
-}
 .showcase {
-  padding: clamp(16px, 3.5vw, 42px);
+  --showcase-padding: clamp(16px, 3.5vw, 42px);
+  position: relative;
+  padding: var(--showcase-padding);
   border-radius: clamp(22px, 3vw, 36px);
   background: var(--surface);
+}
+.pending-playback {
+  position: absolute;
+  inset: var(--showcase-padding) var(--showcase-padding) auto;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
 }
 .waiting-panel.hero-wait {
   min-height: clamp(210px, 28vw, 330px);
@@ -116,20 +115,10 @@ main {
   line-height: 1.35;
   letter-spacing: -0.025em;
 }
-.status-dot {
-  width: 6px;
-  height: 6px;
-  background: var(--success);
-  border-radius: 50%;
-  display: inline-block;
-  flex: 0 0 auto;
-}
-.status-dot.failed {
-  background: var(--error);
-}
 .source-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 16px;
 }
 .source-card {
@@ -137,11 +126,15 @@ main {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
-  min-height: 124px;
-  padding: 22px;
+  min-height: 76px;
+  padding: 12px 22px;
   border: 1px solid transparent;
   border-radius: 24px;
   background: var(--surface);
+}
+.sample-card {
+  grid-template-columns: auto auto auto;
+  justify-self: start;
 }
 .sample-card[draggable="true"] {
   cursor: grab;
@@ -227,26 +220,34 @@ button.text-link {
   background: var(--raised);
 }
 
-.analysis-status {
-  margin-top: 12px;
-}
 .progress-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  padding-inline: 3px;
+  gap: 3px 8px;
+  min-width: 0;
   color: var(--secondary);
-  font-size: 12px;
+  font-size: 13px;
 }
 .progress-bar strong {
   color: var(--ink);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
+  white-space: nowrap;
 }
-.status-dot.working {
+.progress-bar strong.status-ready {
+  color: var(--success);
+}
+.progress-bar strong.status-failed,
+.waiting-panel strong.status-failed {
+  color: var(--error);
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
   background: var(--accent);
+  border-radius: 50%;
+  flex: 0 0 auto;
   animation: pulse 1.2s ease-in-out infinite alternate;
 }
 @keyframes pulse {
@@ -255,16 +256,14 @@ button.text-link {
   }
 }
 .record-name {
-  overflow-wrap: anywhere;
-}
-.close-record {
-  margin-left: auto;
-  font-size: 12px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .error {
-  border-left: 2px solid var(--error);
-  margin: 10px 0 0;
-  padding: 6px 10px;
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
   color: var(--error);
   font-size: 13px;
   overflow-wrap: anywhere;
@@ -353,11 +352,6 @@ button.text-link {
   font-weight: 600;
   margin: 0;
 }
-.plot-heading p {
-  margin: 3px 0 0;
-  color: var(--secondary);
-  font-size: 12px;
-}
 .profiles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -395,15 +389,9 @@ button.text-link {
   color: var(--accent);
 }
 .distance-control {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  margin-top: 4px;
-}
-.distance-control input {
+  display: block;
   width: clamp(65px, 10vw, 104px);
-  margin: 0;
+  margin: 4px 0 0;
   accent-color: var(--accent);
 }
 .signal-plot {
@@ -563,41 +551,6 @@ th {
   min-width: 0;
 }
 
-.spec-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin: 0;
-}
-.spec-grid > div {
-  min-width: 0;
-  padding: clamp(18px, 3vw, 34px);
-  border-radius: 24px;
-  background: var(--surface);
-}
-.spec-grid dt {
-  color: var(--secondary);
-  font-size: 13px;
-  font-weight: 550;
-}
-.spec-grid dd {
-  margin: 8px 0 0;
-  font-size: clamp(19px, 2.6vw, 26px);
-  font-weight: 650;
-  line-height: 1.2;
-  letter-spacing: -0.035em;
-  overflow-wrap: anywhere;
-}
-.reference {
-  display: block;
-  margin: 16px 0 0;
-  color: var(--secondary);
-  font-size: 13px;
-  line-height: 1.6;
-}
-a.reference {
-  color: var(--accent);
-}
 .site-footer {
   display: flex;
   flex-wrap: wrap;
@@ -637,13 +590,9 @@ a.reference {
     grid-template-columns: minmax(0, 1fr);
     gap: 10px;
   }
-  .source-card {
-    min-height: 86px;
-  }
 }
 @media (max-width: 680px) {
-  .profiles,
-  .spec-grid {
+  .profiles {
     grid-template-columns: minmax(0, 1fr);
   }
   .plot-heading {

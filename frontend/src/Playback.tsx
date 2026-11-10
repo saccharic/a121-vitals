@@ -422,7 +422,9 @@ function Player({
     return (
       <div className="waiting-panel" role="status">
         <div>
-          <strong>{loadError ? "재생 준비 오류" : "재생 준비 중"}</strong>
+          <strong className={loadError ? "status-failed" : undefined}>
+            {loadError ? "재생 준비 실패" : "재생 준비 중"}
+          </strong>
           {loadError && (
             <p>
               <button
@@ -502,13 +504,7 @@ function Player({
       )}
 
       <div className="plot-heading">
-        <div>
-          <h3>거리별 신호</h3>
-          <p>
-            스윕 {sweep} · {number(distanceDomain[0], 3)}–
-            {number(distanceDomain[1], 3)} m
-          </p>
-        </div>
+        <h3>거리별 신호</h3>
         {!window && <span className="hint">구간 불러오는 중</span>}
       </div>
       <div className="profiles">
@@ -516,13 +512,6 @@ function Player({
           <div className="plot-card" key={type}>
             <div className="plot-title">
               <h4>{type === "iq" ? "Sparse IQ" : metricLabels[type]}</h4>
-              <span>
-                {type === "iq"
-                  ? "원본 정수"
-                  : type === "phase"
-                    ? "rad"
-                    : "스윕 평균 · counts"}
-              </span>
             </div>
             <SignalPlot
               label={`거리별 ${metricLabels[type]}`}
@@ -558,22 +547,17 @@ function Player({
         <div className="plot-title">
           <div>
             <h4>선택 거리의 시계열</h4>
-            <div className="distance-control">
-              <input
-                type="range"
-                aria-label="거리 지점"
-                aria-valuetext={`${number(distances[point], 3)} m`}
-                min={0}
-                max={distances.length - 1}
-                value={point}
-                disabled={distances.length < 2}
-                onChange={(event) => setPoint(Number(event.target.value))}
-              />
-              <span>
-                {number(distances[point], 3)} m
-                {metric === "amplitude" && " · 스윕 평균"}
-              </span>
-            </div>
+            <input
+              className="distance-control"
+              type="range"
+              aria-label="거리 지점"
+              aria-valuetext={`${number(distances[point], 3)} m`}
+              min={0}
+              max={distances.length - 1}
+              value={point}
+              disabled={distances.length < 2}
+              onChange={(event) => setPoint(Number(event.target.value))}
+            />
           </div>
           <div className="metric-switch" role="group" aria-label="시계열 항목">
             {metrics.map((type) => (

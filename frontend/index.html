@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="Acconeer A121 Sparse IQ 기록 뷰어" />
-    <title>A121 Vitals | XE125</title>
+    <title>A121 Vitals</title>
     <style>
       #startup-help {
         box-sizing: border-box;
@@ -16,6 +16,13 @@
         font-family: system-ui, sans-serif;
         line-height: 1.6;
       }
+      #startup-help pre {
+        width: fit-content;
+        padding: 0.65rem 1rem;
+        border: 1px solid #38383c;
+        border-radius: 8px;
+        background: #1d1d1f;
+      }
       body:has(#startup-help) {
         margin: 0;
       }
@@ -23,12 +30,13 @@
   </head>
   <body>
     <div id="root">
-      <main id="startup-help">
-        <h1>A121 Vitals | XE125</h1>
+      <main id="startup-help" lang="en">
+        <h1>A121 Vitals</h1>
         <p>
-          터미널에서 <code>bash run-local.sh</code>를 실행하고 표시된 주소를
-          여십시오.
+          On macOS or Linux, install Python 3.11+ with venv and pip, and Node.js
+          22.12+ with npm. Run this from the repository root.
         </p>
+        <pre><code>bash run-local.sh</code></pre>
       </main>
     </div>
     <script type="module" src="/src/main.tsx"></script>
